@@ -89,6 +89,20 @@ antes de dar por buena la salida si se vuelve a tocar el fichero.
   (antes todo era `--plugin-dir`), y el caché de marketplace/plugin estaba
   vacío para este marketplace antes de la prueba.
 
+**Prueba anónima tras hacer el repo público** (lo más parecido a una máquina
+limpia sin levantar otra VM): desinstalado plugin y marketplace, y repetido
+el ciclo completo con `GIT_CONFIG_GLOBAL=/dev/null GIT_TERMINAL_PROMPT=0`
+para anular las credenciales de git. Resultado: Claude Code detectó "SSH not
+configured" y cayó a HTTPS solo, clonó el repo público **sin credenciales**,
+instaló y ejecutó bien desde `/root` (rama "no hay CLAUDE.md"). Después se
+repitió con el entorno normal y el comando tal cual del README, también
+correcto.
+
+Nota sobre el error de SSH del principio: ocurrió antes de ejecutar
+`gh auth setup-git` (no existía `~/.gitconfig`). Después ya no se reproduce.
+No he confirmado la lógica interna exacta de esa detección, así que el README
+lo describe como un fallo posible según la máquina, no como algo seguro.
+
 **Ideas para más adelante (nada de esto está comprometido)**:
 - Contar tokens de verdad con un tokenizador en vez de caracteres/4.
 - Mirar también `.claude/skills/` y ficheros `CLAUDE.md` anidados, que

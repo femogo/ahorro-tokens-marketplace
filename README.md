@@ -29,9 +29,9 @@ Y desde cualquier proyecto:
 
 ### Si el `add` falla con un error de SSH
 
-El atajo `owner/repo` clona por SSH por defecto. Si tu máquina no tiene la
-host key de GitHub en `known_hosts`, verás `Host key verification failed`.
-Fuerza HTTPS:
+En algunas máquinas el atajo `owner/repo` intenta clonar por SSH, y falla con
+`Host key verification failed` si GitHub no está en tu `known_hosts`. Si te
+pasa, fuerza HTTPS:
 
 ```
 CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1 claude plugin marketplace add femogo/ahorro-tokens-marketplace
