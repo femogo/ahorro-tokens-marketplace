@@ -1,0 +1,13 @@
+{
+  "name": "ahorro-tokens-marketplace",
+  "owner": {
+    "name": "femogo"
+  },
+  "plugins": [
+    {
+      "name": "ahorro-tokens",
+      "source": "./plugins/ahorro-tokens",
+      "description": "Audita el coste en tokens de un proyecto (CLAUDE.md, servidores MCP) y sugiere las 3 acciones que más lo reducirían."
+    }
+  ]
+}
