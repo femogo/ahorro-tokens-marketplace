@@ -1,5 +1,6 @@
 {
   "name": "ahorro-tokens",
+  "version": "1.0.0",
   "description": "Expone /auditoria-tokens: audita el coste en tokens de CLAUDE.md y los servidores MCP configurados, y sugiere las 3 acciones que más ahorrarían contexto.",
   "author": {
     "name": "femogo"
