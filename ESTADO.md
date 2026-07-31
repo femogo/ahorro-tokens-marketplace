@@ -1,9 +1,22 @@
 # Estado
 
-**Fase actual**: Fase 4 completada y verificada de verdad. Las 3 secciones
-del informe (`CLAUDE.md`, MCP, 3 acciones) funcionan de punta a punta.
-Queda solo la Fase 5 (publicar y probar en máquina limpia) para cumplir el
-criterio de terminado de `CLAUDE.md`.
+**Fase actual**: Fase 5 cerrada. v0.1 terminado según el criterio de
+`CLAUDE.md`: el plugin se instala desde el repo y `/auditoria-tokens`
+devuelve un informe útil.
+
+**Repositorio**: https://github.com/femogo/ahorro-tokens-marketplace
+(**público**), rama `main`.
+
+**Decisiones de empaquetado (Fase 5)**:
+- `plugin.json` **no fija `version`** a propósito. La documentación avisa de
+  que una versión fijada congela a los usuarios ya instalados hasta que se
+  sube el número a mano; sin el campo, cada commit cuenta como versión nueva
+  y `claude plugin update` recoge los cambios solo. `claude plugin validate`
+  emite un warning por esto — es esperado, no un fallo.
+- Añadidos `README.md` (instrucciones de instalación, incluida la nota de
+  `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1`), `LICENSE` (MIT) y metadatos
+  `homepage`/`repository`/`license`/`keywords` en `plugin.json`.
+- Añadida `description` al marketplace (era un warning de validate).
 
 **Qué existe ya**:
 - `.claude-plugin/marketplace.json` — marketplace `ahorro-tokens-marketplace`
@@ -52,12 +65,36 @@ distintos, cumpliendo el criterio de la Fase 4 de `PLAN.md`.
 invocación puede devolver una versión vieja cacheada; invocar dos veces
 antes de dar por buena la salida si se vuelve a tocar el fichero.
 
-**Siguiente acción concreta (Fase 5, última)**:
-Crear el repositorio en GitHub para este marketplace y probar la
-instalación de verdad: `/plugin marketplace add <owner/repo>` +
-`/plugin install ahorro-tokens@ahorro-tokens-marketplace` +
-`/ahorro-tokens:auditoria-tokens`, idealmente desde una máquina o contenedor
-distinto al que se ha usado para desarrollar. Esto es lo único que falta
-para cumplir el criterio de terminado de `CLAUDE.md`. Requiere decisión del
-usuario: nombre del repo, visibilidad (público/privado) y si lo crea él o
-se le pide a Claude que lo haga con `gh`.
+**Fase 5 — publicación y distribución real (verificado, con una salvedad)**:
+- `gh` instalado y autenticado como `femogo` (scope `repo`).
+- `git init` local (identidad de commit configurada solo a nivel de repo,
+  no global), commit `45506dc`, repo privado creado con `gh repo create
+  --push`: https://github.com/femogo/ahorro-tokens-marketplace.
+- Confirmado con `gh repo view`: `visibility: PRIVATE`, rama por defecto
+  `main`.
+- Camino real probado de punta a punta, sin `--plugin-dir`:
+  `CLAUDE_CODE_PLUGIN_PREFER_HTTPS=1 claude plugin marketplace add
+  femogo/ahorro-tokens-marketplace` → `✔ Successfully added marketplace`.
+  (El shorthand `owner/repo` clona por SSH por defecto y falló por falta de
+  host key; la propia documentación indica forzar HTTPS con esa variable de
+  entorno. También hizo falta `gh auth setup-git` para el credential
+  helper.)
+  `claude plugin install ahorro-tokens@ahorro-tokens-marketplace` → `✔
+  Successfully installed`.
+  `claude -p "/ahorro-tokens:auditoria-tokens"` (ya sin `--plugin-dir`) →
+  mismo informe correcto de siempre (395 tokens, 1 MCP conectado, 1 acción).
+- **Salvedad**: estas pruebas las ejecuté yo (Claude), en este mismo
+  contenedor de desarrollo — no en una máquina distinta. Lo que sí es nuevo:
+  es la primera vez que se prueba el mecanismo real de distribución
+  (antes todo era `--plugin-dir`), y el caché de marketplace/plugin estaba
+  vacío para este marketplace antes de la prueba.
+
+**Ideas para más adelante (nada de esto está comprometido)**:
+- Contar tokens de verdad con un tokenizador en vez de caracteres/4.
+- Mirar también `.claude/skills/` y ficheros `CLAUDE.md` anidados, que
+  también pesan.
+- Contar herramientas por servidor MCP, no solo el número de servidores: un
+  servidor con 40 herramientas cuesta mucho más que uno con 3.
+
+Cualquiera de estas abre la v0.2 y hay que decidirla antes de tocar código:
+la v0.1 está deliberadamente cerrada.

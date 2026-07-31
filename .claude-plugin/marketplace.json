@@ -1,5 +1,6 @@
 {
   "name": "ahorro-tokens-marketplace",
+  "description": "Marketplace con herramientas para reducir el consumo de contexto en Claude Code.",
   "owner": {
     "name": "femogo"
   },
