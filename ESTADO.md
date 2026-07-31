@@ -1,10 +1,16 @@
 # Estado
 
-**Fase actual**: v0.1 cerrado y publicado (ver más abajo). En construcción de
-**v1.0** — mejora B (CLAUDE.md anidados) implementada y verificada en local,
-sin commitear/pushear todavía. A sigue pendiente de aclarar una salvedad, C
-pendiente de decisión del usuario. Ver "Roadmap v1.0" al final de este
-fichero.
+**Fase actual**: v1.0.0 publicada. Commiteado y pusheado a `origin/main`:
+mejora B (CLAUDE.md anidados, `158cead`), refactor a statusLine + panel bajo
+demanda + skill fina (`fbeac13`), aclaración de ventana nominal vs buffer de
+autocompactación en el panel (`4e60e1c`), y versión `1.0.0` fijada en
+`plugin.json` con tag `ahorro-tokens--v1.0.0` (`5d36d32`), lista para el
+formulario de comunidad de Anthropic.
+
+El usuario decidió descartar A y C para v1.0.0 (ver secciones A y C más
+abajo para el porqué de cada una). Con eso, el roadmap v1.0 queda cerrado
+tal cual está publicado: no hay más código pendiente de escribir para esta
+versión.
 
 **Repositorio**: https://github.com/femogo/ahorro-tokens-marketplace
 (**público**), rama `main`.
@@ -125,8 +131,10 @@ planificación, a propósito, porque el usuario iba a hacer `/clear` después.
 
 ### A — Coste de skills/plugins autocargados de otros plugins
 
-**Investigado y viable, con una salvedad sin resolver que hay que aclarar
-antes de implementar.**
+**Investigado, salvedad confirmada (ver más abajo), y descartado para
+v1.0.0 por decisión del usuario**: se espera a que Anthropic aclare o
+corrija el sobrecoste de `claude plugin details` para skills con
+`disable-model-invocation: true` antes de construir nada sobre ese dato.
 
 Existe un comando oficial documentado para esto:
 `claude plugin details <plugin>@<marketplace>` — "Show a plugin's component
@@ -159,19 +167,28 @@ true`, o si sobreestima.** Si sobreestima, usar sus números tal cual en el
 informe de auditoría induciría a error (irónicamente, sobre el propio
 ahorro-tokens, que se diseñó para costar ~0 permanente).
 
-**Antes de implementar A**: aclarar esta discrepancia — por ejemplo,
-comparando el `Always-on` reportado para una skill con
-`disable-model-invocation: true` frente a una sin ese flag pero de
-descripción similar, o preguntando/revisando si hay documentación más
-específica sobre esto. Si se confirma que `plugin details` sobreestima,
-decidir si se usa igualmente con una nota de salvedad, o si se busca otra
-vía.
+**Salvedad confirmada** (sesión posterior a la publicación de v1.0.0):
+comparación directa con un plugin de sondaje desechable (`sondaje`, creado y
+borrado solo para esta prueba, con dos skills de descripción idéntica byte
+a byte, una con `disable-model-invocation: true` y otra sin el campo).
+`claude plugin details` reportó el **mismo** coste "always-on" (~80 tok)
+para ambas. Confirma que `plugin details` **sobreestima** el coste real de
+las skills con `disable-model-invocation: true`: las cuenta como si su
+descripción entrara siempre en contexto, cuando la documentación de skills
+dice que no debería ser así.
 
-**Plan de implementación (una vez aclarado)**: enumerar plugins con `claude
-plugin list`, quedarse solo con los `enabled`, llamar `claude plugin details
-<nombre>` por cada uno, sumar/listar "Always-on" por plugin (excluyendo o
-no a `ahorro-tokens` mismo, a decidir). Requiere añadir `Bash(claude plugin
-list)` y `Bash(claude plugin details *)` a `allowed-tools` en `SKILL.md`.
+**Decisión del usuario**: dejar A fuera de v1.0.0 por completo (opción 3 de
+las 3 que se le presentaron), en vez de usar los números de `plugin details`
+con una nota de salvedad, o ajustarlos manualmente detectando
+`disable-model-invocation: true` en cada `SKILL.md`. Se espera a que
+Anthropic aclare o corrija el comportamiento antes de retomarlo.
+
+**Plan de implementación, si se retoma en el futuro**: enumerar plugins con
+`claude plugin list`, quedarse solo con los `enabled`, llamar `claude plugin
+details <nombre>` por cada uno, sumar/listar "Always-on" por plugin
+(excluyendo o no a `ahorro-tokens` mismo, a decidir). Requiere añadir
+`Bash(claude plugin list)` y `Bash(claude plugin details *)` a
+`allowed-tools` en `SKILL.md`.
 
 ### B — CLAUDE.md anidados (no solo el de la raíz)
 
@@ -255,10 +272,8 @@ Comprobado:
   descubre dinámicamente hablando el protocolo MCP con el servidor
   (`tools/list`), lo que exige conectar de verdad.
 
-Queda pendiente de hablar con el usuario si merece la pena implementar C
-conectando directamente a cada servidor (más dependencias, más superficie
-de fallo, y el propio Claude Code ya hace esa conexión internamente sin
-exponer el dato), o si se descarta para v1.0.
+**Decisión del usuario**: descartar C para v1.0.0. El informe se queda como
+está (lista servidores MCP conectados, sin desglosar sus herramientas).
 
 ### D y lo dejado fuera
 
@@ -268,12 +283,16 @@ histórico/diffing ni umbral configurable todavía.
 
 ### Siguiente acción concreta
 
-1. Decidir con el usuario si se commitea y pushea B (cambios ya hechos y
-   verificados en local: `plugins/ahorro-tokens/skills/auditoria-tokens/SKILL.md`
-   y el script nuevo `scripts/find-claude-md.sh`). Recordar la regla del
-   proyecto: nunca commitear/pushear sin que el usuario lo pida
-   explícitamente.
-2. Aclarar la salvedad de A (arriba) antes de tocar `SKILL.md` para esa
-   parte.
-3. Hablar con el usuario sobre C (conectar de verdad sí/no) antes de
-   avanzar con eso.
+Ninguna: las tres acciones de esta lista están cerradas.
+
+1. ~~Decidir con el usuario si se commitea y pushea B~~ — hecho, commiteado
+   y pusheado (`158cead`, y confirmado de nuevo en `origin/main` tras el
+   push de v1.0.0).
+2. ~~Aclarar la salvedad de A~~ — hecho, confirmada (ver sección A). El
+   usuario decidió descartar A para v1.0.0.
+3. ~~Hablar con el usuario sobre C~~ — hecho, descartada para v1.0.0.
+
+El roadmap v1.0 queda cerrado con lo ya publicado (B, el refactor de
+statusLine/panel, y la versión `1.0.0` fijada). A y C quedan documentados
+como investigados y descartados por decisión explícita del usuario, no
+como pendientes.
