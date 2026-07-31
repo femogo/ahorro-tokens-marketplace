@@ -1,11 +1,22 @@
 # Estado
 
-**Fase actual**: Fase 5 cerrada. v0.1 terminado según el criterio de
-`CLAUDE.md`: el plugin se instala desde el repo y `/auditoria-tokens`
-devuelve un informe útil.
+**Fase actual**: v0.1 cerrado y publicado (ver más abajo). En construcción de
+**v1.0** — mejora B (CLAUDE.md anidados) implementada y verificada en local,
+sin commitear/pushear todavía. A sigue pendiente de aclarar una salvedad, C
+pendiente de decisión del usuario. Ver "Roadmap v1.0" al final de este
+fichero.
 
 **Repositorio**: https://github.com/femogo/ahorro-tokens-marketplace
 (**público**), rama `main`.
+
+**Regla de colaboración fijada por el usuario (importante para cualquier
+sesión futura)**: nunca reescribir historial de git (`filter-branch`,
+`rebase` sobre commits ya pusheados, `commit --amend` sobre commits
+pusheados) ni hacer `push --force`/`--force-with-lease` por iniciativa
+propia. Siempre proponer el comando exacto y esperar confirmación explícita
+antes de ejecutarlo, aunque parezca de bajo riesgo o esté implícito en una
+petición más general. (Guardado también como memoria persistente,
+`git_history_confirmation.md`, porque aplica más allá de este proyecto.)
 
 **Decisiones de empaquetado (Fase 5)**:
 - `plugin.json` **no fija `version`** a propósito. La documentación avisa de
@@ -103,12 +114,166 @@ Nota sobre el error de SSH del principio: ocurrió antes de ejecutar
 No he confirmado la lógica interna exacta de esa detección, así que el README
 lo describe como un fallo posible según la máquina, no como algo seguro.
 
-**Ideas para más adelante (nada de esto está comprometido)**:
-- Contar tokens de verdad con un tokenizador en vez de caracteres/4.
-- Mirar también `.claude/skills/` y ficheros `CLAUDE.md` anidados, que
-  también pesan.
-- Contar herramientas por servidor MCP, no solo el número de servidores: un
-  servidor con 40 herramientas cuesta mucho más que uno con 3.
+---
 
-Cualquiera de estas abre la v0.2 y hay que decidirla antes de tocar código:
-la v0.1 está deliberadamente cerrada.
+## Roadmap v1.0
+
+El usuario pidió llevar el plugin de v0.1 a v1.0. Se propusieron 4 mejoras
+(A-D); esto documenta dónde quedó cada una tras investigar. **No se ha
+escrito código de v1.0 todavía** — esta sesión fue solo de investigación y
+planificación, a propósito, porque el usuario iba a hacer `/clear` después.
+
+### A — Coste de skills/plugins autocargados de otros plugins
+
+**Investigado y viable, con una salvedad sin resolver que hay que aclarar
+antes de implementar.**
+
+Existe un comando oficial documentado para esto:
+`claude plugin details <plugin>@<marketplace>` — "Show a plugin's component
+inventory and projected token cost" (`plugins-reference.md`, sección
+"plugin details"). Muestra, por plugin: inventario de componentes (Skills,
+Agents, Hooks, MCP servers, LSP servers) y dos cifras de coste:
+- **Always-on**: tokens añadidos a cada sesión por el texto de listado
+  (descripciones, nombres), pase lo que pase.
+- **On-invoke**: coste de cada componente cuando se dispara.
+
+El "Always-on" total se calcula con la API real `count_tokens` del modelo
+activo (no la heurística caracteres/4 que usa v0.1), con fallback a
+caracteres si la API no está disponible.
+
+Probado en real sobre el propio `ahorro-tokens`:
+```
+claude plugin details ahorro-tokens@ahorro-tokens-marketplace
+```
+dio `Skills (1) auditoria-tokens`, `Always-on: ~84 tok`.
+
+**La salvedad**: `auditoria-tokens` tiene `disable-model-invocation: true`,
+y la documentación de skills afirma que con ese flag "la descripción no
+entra en contexto" (tabla en `skills.md`, columna "Description not in
+context, full skill loads when you invoke"). Pero `plugin details` sigue
+contando ~84 tokens de "always-on" para esa misma skill, y su propia
+documentación dice que ese número se cuenta "regardless of whether any
+component fires". **No he podido confirmar si `plugin details` excluye
+correctamente el coste real de las skills con `disable-model-invocation:
+true`, o si sobreestima.** Si sobreestima, usar sus números tal cual en el
+informe de auditoría induciría a error (irónicamente, sobre el propio
+ahorro-tokens, que se diseñó para costar ~0 permanente).
+
+**Antes de implementar A**: aclarar esta discrepancia — por ejemplo,
+comparando el `Always-on` reportado para una skill con
+`disable-model-invocation: true` frente a una sin ese flag pero de
+descripción similar, o preguntando/revisando si hay documentación más
+específica sobre esto. Si se confirma que `plugin details` sobreestima,
+decidir si se usa igualmente con una nota de salvedad, o si se busca otra
+vía.
+
+**Plan de implementación (una vez aclarado)**: enumerar plugins con `claude
+plugin list`, quedarse solo con los `enabled`, llamar `claude plugin details
+<nombre>` por cada uno, sumar/listar "Always-on" por plugin (excluyendo o
+no a `ahorro-tokens` mismo, a decidir). Requiere añadir `Bash(claude plugin
+list)` y `Bash(claude plugin details *)` a `allowed-tools` en `SKILL.md`.
+
+### B — CLAUDE.md anidados (no solo el de la raíz)
+
+**Implementado y verificado de verdad en esta sesión.**
+
+Verificación contra `code.claude.com/docs/en/memory` (sección "How CLAUDE.md
+files load"), no de memoria previa:
+- Claude Code sube el árbol de directorios desde el directorio de trabajo
+  hasta la raíz del filesystem, y carga **enteros, en cada sesión**, todos
+  los `CLAUDE.md`/`CLAUDE.local.md` de ese camino ("ancestros"). No hay
+  límite de profundidad documentado ni comando CLI para listarlos aparte de
+  recorrerlos.
+- Además descubre `CLAUDE.md`/`CLAUDE.local.md` en subcarpetas por debajo
+  del directorio de trabajo ("anidados"), pero **no los carga al arrancar**:
+  solo entran en contexto si Claude llega a leer un fichero de esa
+  subcarpeta durante la sesión. Coste no garantizado, por tanto no debe
+  sumarse al de los ancestros.
+
+Implementación: script nuevo
+`plugins/ahorro-tokens/skills/auditoria-tokens/scripts/find-claude-md.sh`
+(bundleado con el plugin, se referencia con `${CLAUDE_SKILL_DIR}` tal como
+documenta `skills.md`), que imprime dos listas separadas (`## ancestros` /
+`## anidados`) siguiendo exactamente esa lógica. `SKILL.md` sección 1
+reescrita para: ejecutar el script, hacer `wc -lc` de cada ruta encontrada,
+sumar el total solo de ancestros para el umbral de la acción 2, y reportar
+los anidados aparte con su salvedad. `allowed-tools` ampliado con
+`Bash(${CLAUDE_SKILL_DIR}/scripts/find-claude-md.sh)`.
+
+**Verificado de verdad, no solo "debería funcionar"**:
+- Script probado directamente: detecta el ancestro de este repo
+  (`/opt/skill/CLAUDE.md`) desde una subcarpeta, y un `CLAUDE.md` de prueba
+  en subcarpeta como anidado, cada uno bajo su cabecera correcta.
+- Ciclo completo con el plugin instalado de verdad (no solo el script
+  suelto): añadido temporalmente un marketplace local apuntando a
+  `/opt/skill` (`claude plugin marketplace add /opt/skill`, mismo nombre
+  que el ya configurado, así que lo repuntó), `claude plugin update
+  ahorro-tokens@ahorro-tokens-marketplace`, y ejecutado `claude -p
+  "/ahorro-tokens:auditoria-tokens"` como proceso nuevo (el proceso de esta
+  sesión no recoge cambios de plugin sin reiniciar, así que la única forma
+  de probarlo de verdad era un `claude -p` aparte). Dos casos, ambos
+  correctos:
+  - Sin anidados: sección 1 solo con "Ancestros" (~395 tokens, igual que
+    siempre) y "Anidados: ninguno encontrado."
+  - Con un `CLAUDE.md` de prueba en `plugins/testsub/` (63 caracteres, 2
+    líneas, borrado después de la prueba): apareció correctamente bajo
+    "Anidados" con su propia estimación (~16 tokens) y la nota de que su
+    coste no es garantizado, sin sumarse al total de ancestros ni disparar
+    la acción 2 del umbral de 2000 tokens.
+- Después de la prueba, repuesto el marketplace a su origen real
+  (`claude plugin marketplace add https://github.com/femogo/ahorro-tokens-marketplace`)
+  para no dejar la configuración del usuario alterada. **Nota para la
+  próxima sesión**: el caché de plugin de esta máquina
+  (`~/.claude/plugins/cache/.../76e13ae02b37/`) quedó con el contenido de
+  la prueba local (incluye ya `scripts/find-claude-md.sh`) aunque ese
+  commit no existe todavía en GitHub — es solo caché local de este
+  contenedor, no afecta al repo público, pero si algo raro pasa con
+  versiones de plugin más adelante, puede ser la causa.
+
+**Pendiente, no de investigación sino de decisión del usuario**: los
+cambios de código (`SKILL.md`, script nuevo) están hechos y verificados
+mano a mano en local, pero **sin commitear ni pushear** — pendiente de que
+el usuario lo pida explícitamente.
+
+### C — Contar herramientas por servidor MCP
+
+**Investigado: requiere invocar/conectar al servidor. No es posible leyendo
+solo la configuración estática. Parado aquí, como se pidió, sin implementar
+nada.**
+
+Comprobado:
+- `claude mcp list --help` y `claude mcp get --help` no tienen flag `--json`
+  ni ninguna opción de salida estructurada.
+- Probado en real: `claude mcp get "claude.ai Dice"` solo devuelve `Scope` y
+  `Status` — ningún recuento de herramientas.
+- La documentación dice explícitamente que el recuento de herramientas por
+  servidor solo aparece en el panel interactivo `/mcp` ("shows the tool
+  count next to each connected server"), que no es invocable desde una
+  skill no interactiva (`-p`).
+- El recuento no vive en la configuración estática (`.mcp.json` /
+  `~/.claude.json` solo tienen `command`/`args`/`url`, no herramientas): se
+  descubre dinámicamente hablando el protocolo MCP con el servidor
+  (`tools/list`), lo que exige conectar de verdad.
+
+Queda pendiente de hablar con el usuario si merece la pena implementar C
+conectando directamente a cada servidor (más dependencias, más superficie
+de fallo, y el propio Claude Code ya hace esa conexión internamente sin
+exponer el dato), o si se descarta para v1.0.
+
+### D y lo dejado fuera
+
+Sin cambios: de acuerdo con el usuario en mantener conteo real de tokens
+para CLAUDE.md (heurística caracteres/4 vale por ahora) y en no añadir
+histórico/diffing ni umbral configurable todavía.
+
+### Siguiente acción concreta
+
+1. Decidir con el usuario si se commitea y pushea B (cambios ya hechos y
+   verificados en local: `plugins/ahorro-tokens/skills/auditoria-tokens/SKILL.md`
+   y el script nuevo `scripts/find-claude-md.sh`). Recordar la regla del
+   proyecto: nunca commitear/pushear sin que el usuario lo pida
+   explícitamente.
+2. Aclarar la salvedad de A (arriba) antes de tocar `SKILL.md` para esa
+   parte.
+3. Hablar con el usuario sobre C (conectar de verdad sí/no) antes de
+   avanzar con eso.
