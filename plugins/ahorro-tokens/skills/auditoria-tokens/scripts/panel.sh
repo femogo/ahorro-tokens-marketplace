@@ -15,8 +15,17 @@
 #
 # Reglas de presentación (ver también la fase 3, que solo envuelve esto):
 #   - Si un dato no se puede obtener, se dice. No se rellena ni se inventa.
-#   - Los porcentajes van con un decimal y SIEMPRE sobre el context_window_size
-#     real. Sin ese dato no se da porcentaje.
+#   - El tamaño de la ventana se toma SIEMPRE de context_window_size del
+#     volcado de la statusLine (fase 1). No se fija en el script ni se usa
+#     200000 como valor por defecto: la ventana varía por modelo y por plan,
+#     y el usuario puede cambiar de modelo a mitad de sesión.
+#   - Si no hay volcado disponible, se muestran los tokens en absoluto y se
+#     omite el porcentaje por completo, indicando por qué falta ("sin datos
+#     de sesión"). No se inventa denominador bajo ninguna circunstancia.
+#   - Cuando se muestra un porcentaje, se aclara de qué es: aquí siempre es
+#     sobre la ventana nominal (context_window_size), no sobre el espacio
+#     utilizable descontando el buffer de autocompactación, porque el
+#     volcado no expone ese buffer.
 #   - Los comandos sugeridos se pueden copiar y pegar tal cual: los nombres con
 #     espacios van entre comillas dobles.
 #   - Sin emoji. Barras ASCII.
@@ -200,11 +209,13 @@ seccion_sesion() {
   titulo "1. TU SESIÓN AHORA MISMO                              [MEDIDO]"
   case "$cache_estado" in
     ok)
-      printf '   Ventana total:  %s tokens\n' "$(formatea "$ventana")"
+      printf '   Ventana total:  %s tokens  (nominal, del volcado)\n' "$(formatea "$ventana")"
       if es_entero "$ventana" && [ "$ventana" -gt 0 ]; then
         libre=$(( ventana - usados )); [ "$libre" -lt 0 ] && libre=0
         printf '   Ocupado:        %s tokens  (%s%%)\n' "$(formatea "$usados")" "$(pct "$usados" "$ventana")"
         printf '   Libre:          %s tokens  (%s%%)\n' "$(formatea "$libre")" "$(pct "$libre" "$ventana")"
+        printf '   (porcentajes sobre la ventana nominal; el volcado no expone el\n'
+        printf '    buffer de autocompactación, así que no descuentan ese margen)\n'
         barra "$usados" "$ventana"
       else
         printf '   Ocupado:        %s tokens\n' "$(formatea "$usados")"
@@ -291,8 +302,10 @@ EOF
   if [ "$total_ancestros" -gt 0 ]; then
     printf '     %-9s TOTAL siempre cargado  [ESTIMADO]\n' "~$(formatea "$total_ancestros") tok"
     if es_entero "$ventana" && [ "$ventana" -gt 0 ]; then
-      printf '                que es un %s%% de tu ventana de %s\n' \
+      printf '                que es un %s%% de tu ventana nominal de %s\n' \
         "$(pct "$total_ancestros" "$ventana")" "$(formatea "$ventana")"
+      printf '                (ventana nominal, sin descontar el buffer de\n'
+      printf '                 autocompactación: ver nota en la sección 1)\n'
     fi
   fi
 
@@ -423,7 +436,8 @@ EOF
 
   printf '\n   Suma siempre-en-contexto de todos los plugins: ~%s tok  [PROYECTADO]\n' "$(formatea "$total_siempre")"
   if es_entero "$ventana" && [ "$ventana" -gt 0 ]; then
-    printf '   Sobre tu ventana medida de %s: %s%%\n' "$(formatea "$ventana")" "$(pct "$total_siempre" "$ventana")"
+    printf '   Sobre tu ventana nominal de %s: %s%%  (ver nota en la sección 1)\n' \
+      "$(formatea "$ventana")" "$(pct "$total_siempre" "$ventana")"
   fi
   # Se ofrece primero `disable`, que es reversible: desinstalar por ahorrar
   # 84 tokens y perder el plugin es mal negocio, y quien lea esto puede no
